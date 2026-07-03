@@ -90,7 +90,7 @@ class AssessmentEmbedding(Base):
         index=True,
     )
     embedding: Mapped[list[float]] = mapped_column(
-        Vector(768),
+        Vector(3072),
         nullable=False,
     )
     embedding_model: Mapped[str] = mapped_column(

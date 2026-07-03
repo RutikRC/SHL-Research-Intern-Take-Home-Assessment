@@ -1,11 +1,17 @@
 """
 Embedding client that uses Google Gemini for vector generation.
 
-Uses Gemini's ``text-embedding-004`` model via LangChain.
+Uses Gemini's ``gemini-embedding-2`` model via the official ``google-genai`` SDK.
 Configuration is read from the application Settings singleton.
 """
 
 from __future__ import annotations
+
+import asyncio
+from functools import partial
+
+from google import genai
+from google.genai import types
 
 from app.core.config import get_settings
 from app.core.logging_ import get_logger
@@ -16,13 +22,13 @@ logger = get_logger(__name__)
 class EmbeddingClient:
     """Generates embedding vectors using Google Gemini.
 
-    Uses ``text-embedding-004`` via ``langchain-google-genai``.
+    Uses ``gemini-embedding-2`` via the official ``google-genai`` SDK.
     Works everywhere — no Ollama required.
     """
 
     def __init__(self) -> None:
         settings = get_settings()
-        self._model = "text-embedding-004"
+        self._model = "gemini-embedding-2"
         self._dimension = settings.EMBEDDING_DIMENSION
         self._api_key = settings.GOOGLE_API_KEY
         self._client = None
@@ -30,12 +36,7 @@ class EmbeddingClient:
 
         if self._api_key:
             try:
-                from langchain_google_genai import GoogleGenerativeAIEmbeddings
-
-                self._client = GoogleGenerativeAIEmbeddings(
-                    model=self._model,
-                    google_api_key=self._api_key,
-                )
+                self._client = genai.Client(api_key=self._api_key)
                 self._initialized = True
                 logger.info(
                     "EmbeddingClient initialized | model=%s | dimension=%d",
@@ -89,7 +90,16 @@ class EmbeddingClient:
             )
 
         try:
-            vector = await self._client.aembed_query(text)
+            # gemini-embedding-2 returns 3072-dimensional vectors by default
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                partial(
+                    self._client.models.embed_content,
+                    model=self._model,
+                    contents=text,
+                ),
+            )
         except Exception as exc:
             logger.error(
                 "Gemini embedding failed | model=%s | error=%s",
@@ -99,6 +109,13 @@ class EmbeddingClient:
             raise RuntimeError(
                 f"Gemini embedding failed: {exc}",
             ) from exc
+
+        if not result or not result.embeddings:
+            raise RuntimeError("Gemini returned empty embeddings")
+
+        # Extract the embedding vector from the response
+        embedding_data = result.embeddings[0]
+        vector = list(embedding_data.values) if hasattr(embedding_data, 'values') else list(embedding_data)
 
         if not isinstance(vector, list) or len(vector) == 0:
             raise RuntimeError("Gemini returned an empty vector")

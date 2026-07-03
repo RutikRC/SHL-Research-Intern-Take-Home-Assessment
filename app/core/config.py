@@ -58,7 +58,7 @@ class Settings(BaseSettings):
 
     # ── Embeddings ───────────────────────────────────────────────────────────
     EMBEDDING_MODEL: str = "nomic-embed-text"
-    EMBEDDING_DIMENSION: int = 768
+    EMBEDDING_DIMENSION: int = 3072
     OLLAMA_BASE_URL: str = "http://localhost:11434"
 
     # ── SHL Catalog ──────────────────────────────────────────────────────────

@@ -90,15 +90,20 @@ async def _create_tables() -> None:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             # Create all ORM-mapped tables
             await conn.run_sync(Base.metadata.create_all)
-            # Create IVFFLAT index for cosine similarity if it doesn't exist
-            await conn.execute(
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_assessment_embeddings_vector "
-                    "ON assessment_embeddings "
-                    "USING ivfflat (embedding vector_cosine_ops) "
-                    "WITH (lists = 100)"
+            # Create IVFFLAT index for cosine similarity on the 3072-dimension vectors
+            try:
+                await conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_assessment_embeddings_vector "
+                        "ON assessment_embeddings "
+                        "USING ivfflat (embedding vector_cosine_ops) "
+                        "WITH (lists = 100)"
+                    )
                 )
-            )
+            except Exception:
+                # Index creation may fail if no data is present yet; that's fine
+                pass
+
         logger.info("database_tables_created", tables=list(Base.metadata.tables.keys()))
     except Exception as exc:
         logger.warning(

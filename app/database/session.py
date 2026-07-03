@@ -18,9 +18,13 @@ settings = get_settings()
 
 # ── Engine ──────────────────────────────────────────────────────────────────
 # Use the async URL built from individual Postgres credentials.
+# pool_pre_ping checks connection health before each use (handles Neon idle timeouts).
+# pool_recycle recycles connections after 300 seconds to avoid stale connections.
 engine = create_async_engine(
     url=settings.async_database_url,
     echo=settings.DATABASE_ECHO,
+    pool_pre_ping=True,
+    pool_recycle=300,
     poolclass=NullPool if settings.TESTING else None,
     pool_size=settings.DATABASE_POOL_SIZE if not settings.TESTING else None,
     max_overflow=settings.DATABASE_MAX_OVERFLOW if not settings.TESTING else None,
